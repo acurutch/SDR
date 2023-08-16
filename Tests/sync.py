@@ -1,5 +1,6 @@
 import pyfftw
 import numpy as np
+import matplotlib.pyplot as plt
 
 def coarse_freq_sync(data, payload_start, samples_perbit, fs_in):
         
@@ -38,12 +39,12 @@ def fine_freq_sync(data, payload_start, preamble_length, samples_perbit, coarse_
     num_of_bits_fft = preamble_length-20
     preamble = data[int(payload_start-num_of_bits_fft*samples_perbit):payload_start]
 
+    original_fft_point = np.power(2,20)
+
     center_index = int(coarse_frequency*original_fft_point/fs_in)
     A = preamble
     x_max = - 1000
     peak_position = 0
-
-    original_fft_point = np.power(2,20)
 
     for k in range(center_index-4, center_index + 5):
             x = abs(np.sum(A*np.exp(-1j*2*np.pi*k*np.arange(len(preamble))/original_fft_point)))
@@ -66,14 +67,15 @@ def phase_sync(data, payload_start, samples_perbit, preamble_length, scheme, car
     Ts_in = 1/fs_in
 
     ### test to make sure this outputs the correct payload ###
-    payload_before_correction = data[payload_start:(payload_start + N*samples_perbit)]
+    # payload_before_correction = data[payload_start:(payload_start + N*samples_perbit)]
     
-    ones_length = preamble_length - 20
+    # ones_length = preamble_length - 20
     
+    # payload_and_ones = data[int(payload_start-ones_length):]
     
-    payload_and_ones = data[int(payload_start-ones_length*samples_perbit):(payload_start + N*samples_perbit)]
-    
-    k = np.arange(len(payload_and_ones))
+    # k = np.arange(len(payload_and_ones))
+
+    k = np.arange(len(data))
     
     Digital_LO = np.exp(-1j*2*np.pi*carrier_frequency*(k*Ts_in))
 
@@ -82,10 +84,13 @@ def phase_sync(data, payload_start, samples_perbit, preamble_length, scheme, car
     #First, correct the frequency offset from packet_data
     #Hint: You may find np.multiply() useful
     #packet_data_freq_corrected = 
-    packet_data_freq_corrected = np.multiply(payload_and_ones,Digital_LO)
-    
+    # packet_data_freq_corrected = np.multiply(payload_and_ones,Digital_LO)
+    packet_data_freq_corrected = np.multiply(data,Digital_LO)
+    plt.plot(packet_data_freq_corrected)
+
     #remove the BB voltage offset at the payload due to non-idealities
-    packet_data_freq_corrected = packet_data_freq_corrected - np.mean(packet_data_freq_corrected[payload_start:])
+    # packet_data_freq_corrected = packet_data_freq_corrected - np.mean(packet_data_freq_corrected[payload_start:])
+    # packet_data_freq_corrected = packet_data_freq_corrected - np.mean(packet_data_freq_corrected)
 
     #Extract the preamble only from the corrected packet (preamble + payload)
     preamble = packet_data_freq_corrected[0:int(preamble_length*samples_perbit)]
@@ -93,7 +98,7 @@ def phase_sync(data, payload_start, samples_perbit, preamble_length, scheme, car
     #Extract carrier phase offset using "preamble" above
     #Hint: You may find np.angle() useful
     #angles =
-    angles = np.angle(preamble)
+    angles = np.angle(np.abs(preamble))
 
     #Averaging for better estimate
     phase_estimated = np.mean(angles)
@@ -102,11 +107,16 @@ def phase_sync(data, payload_start, samples_perbit, preamble_length, scheme, car
     #Hint: You may find np.multiply() helpful and you may want to construct a complex exponential using "phase_estimated"
     #phase_corrected_packet = 
     phase_corrected_packet = np.multiply(packet_data_freq_corrected,np.exp(-1j*phase_estimated))    
+    plt.plot(phase_corrected_packet)
 
-    payload_corrected = phase_corrected_packet[ones_length*samples_perbit:]
+    # payload_corrected = phase_corrected_packet[ones_length*samples_perbit:]
 
-    baseband_signal_I_new = np.real(payload_corrected)
-    baseband_signal_Q_new = np.imag(payload_corrected)    
+    # baseband_signal_I_new = np.real(payload_corrected)
+    # baseband_signal_Q_new = np.imag(payload_corrected)   
+    
+    
+    baseband_signal_I_new = np.real(phase_corrected_packet)
+    baseband_signal_Q_new = np.imag(phase_corrected_packet)     
 
     return baseband_signal_I_new, baseband_signal_Q_new
 

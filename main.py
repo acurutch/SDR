@@ -9,8 +9,7 @@ from lib import CRC
 from lib import symbol_mod_QAM as mod
 from lib import symbol_demod_QAM as demod
 
-from lib import sync
-from sync import coarse_freq_sync, fine_freq_sync, phase_sync
+from Tests import sync
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -19,7 +18,7 @@ from scipy.fft import fft, fftfreq, fftshift
 
 #####################################
 # Declare Variables
-fs = 2.4e9    
+fs = 75000   
 Ts = 1.0 / fs          # sampling period in seconds
 f0 = 0.0               # homodyne (0 HZ IF)
 M = 4                  # oversampling factor
@@ -36,7 +35,7 @@ alpha = 0.9            # roll-off factor of the RRC matched-filter
 
 #####################################
 # Generate preamble and packet
-data = np.random.randint(0,2,size=256) 
+data = np.random.randint(0,2,size=16) 
 dataLen = len(data)
 
 key = np.array([1,1,1,1,0,0,1,0,1])
@@ -51,7 +50,7 @@ known_preamble_bits = packet.preamble_generator(preamble_ones_length)
 preamble_length = len(known_preamble_bits)
 total_samples, samples_perbit, fs_in, Ts_in =  mode_preconfiguration.rx_mode_preconfig(scheme,N,preamble_length,M,fs)
 known_preamble_symbols = mod.symbol_mod(known_preamble_bits, "OOK", len(known_preamble_bits))
-known_preamble = np.abs(pulse_shaping.pulse_shaping(known_preamble_symbols, samples_perbit, fs_in, 'rect', 0.9, 8))
+known_preamble = np.abs(pulse_shaping.pulse_shaping(known_preamble_symbols, samples_perbit, fs_in, 'rrc', 0.9, 8))
 
 payload_start = preamble_length
 N = len(known_preamble_bits)
@@ -64,52 +63,58 @@ data_symbols = mod.symbol_mod(data, scheme, 0)
 ######################
 # Pulse Shaping
 baseband = pulse_shaping.pulse_shaping(baseband_symbols, M, fs, pulse_shape, 0.9, 8)
-plt.plot(baseband[200:260], 'r-')
+# plt.plot(np.real(baseband[200:260]), 'r-')
+# plt.plot(np.imag(baseband[200:260]), 'k-')
+
+plt.plot(baseband)
+
 ######################
 # Simulate Channel
 
 # Add 13 kHz frequency offset
-fo = 13e5
+fo = 130e5
 Ts = 1/fs
 t = np.arange(0, Ts*len(baseband), Ts)
-baseband = baseband * np.exp(1j*2*np.pi*fo*t)
-# plt.plot(baseband[200:260], 'b-')
+baseband_freq_offset = baseband * np.exp(1j*2*np.pi*fo*t)
+# plt.plot(np.real(baseband_freq_offset[200:260]), 'b-')
+# plt.plot(np.imag(baseband_freq_offset[200:260]), 'g-')
 
 # Add phase delay
-delay = 0.4
-N_taps = 16
-n = np.arange(-N//2, N//2)
-h = np.sinc(n - delay)
-h *= np.hamming(N_taps)
-h/= np.sum(h)
-baseband = np.convolve(baseband, h)
-plt.plot(np.real(baseband[200:260]), 'g-')
-plt.plot(np.imag(baseband[200:260]), 'b-')
+# delay = 0.4
+# N_taps = N
+# n = np.arange(-N//2, N//2)
+# h = np.sinc(n - delay)
+# h *= np.hamming(N_taps)
+# h/= np.sum(h)
+# baseband = np.convolve(baseband, h)
+# plt.plot(np.real(baseband[200:260]), 'g-')
+# plt.plot(np.imag(baseband[200:260]), 'b-')
 
-plt.show()
+# plt.show()
 
 ########################
 # Coarse Freq Sync
-coarse_frequency = coarse_freq_sync(data, payload_start, samples_perbit, fs_in)
+coarse_frequency = sync.coarse_freq_sync(baseband_freq_offset, payload_start, samples_perbit, fs_in)
 
 ########################
 # Fine Freq Sync
-carrier_frequency = fine_freq_sync(data, payload_start, preamble_length, samples_perbit, coarse_frequency, fs_in)
+carrier_frequency = sync.fine_freq_sync(baseband_freq_offset, payload_start, preamble_length, samples_perbit, coarse_frequency, fs_in) # doesn't work that well!
 
 ########################
 # Phase Sync
-baseband_signal_I, baseband_signal_Q = phase_sync(data, payload_start, samples_perbit, preamble_length, scheme, carrier_frequency, N, fs_in)
+baseband_signal_I, baseband_signal_Q = sync.phase_sync(baseband_freq_offset, payload_start, samples_perbit, preamble_length, scheme, carrier_frequency, N, fs_in)
+# error where this is truncating by 60 values
 
 ########################
 # Matched Filtering
 
-baseband_signal_I_new = np.real(baseband)
-baseband_signal_Q_new = np.imag(baseband)
+baseband_signal_I_new = np.real(baseband_signal_I)
+baseband_signal_Q_new = np.imag(baseband_signal_Q)
 
 symbols_I = matched_filtering.matched_filtering(baseband_signal_I_new, samples_perbit, fs_in, alpha, L, pulse_shape)
 symbols_Q = matched_filtering.matched_filtering(baseband_signal_Q_new, samples_perbit, fs_in, alpha, L, pulse_shape)
-plt.plot(symbols_I[200:260], 'b-')
-plt.plot(symbols_I[200:260], 'g-')
+plt.plot(symbols_I[25:75], 'b-')
+plt.plot(symbols_I[25:75], 'g-')
 
 channel_gain = max(symbols_I)
 
@@ -128,10 +133,6 @@ if error:
     print("Error!")
 else:
     print("No error")
-
-########################
-# Frame Detect Sync
-
 
 ########################
 # BER Calculation

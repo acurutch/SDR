@@ -52,6 +52,7 @@ def matched_filtering(baseband, M, fs, alpha, L, pulse_shape):
 
             #Downsample by a factor of M
             baseband_filtered = baseband_filtered[(L*M):]
+            # symbols = baseband_filtered
             symbols = signal.upfirdn([1],baseband_filtered,1, M)
         
         if(pulse_shape == 'rect'):

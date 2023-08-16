@@ -33,6 +33,9 @@ def symbol_mod(packet_bits, scheme, preamble_length):
                 payload_symbols = 1.0*payload                
                 baseband_symbols = np.append(preamble_symbols,payload_symbols)
 
+        if(scheme == 'BPSK'):
+            baseband_symbols=packet_bits*2-1
+
         if(scheme == 'QPSK'):
 
 

@@ -45,7 +45,7 @@ def pulse_shaping(a, M, fs, pulse_shape, alpha, L):
 
                 time, h = rrcosfilter(N,alpha, T_symbol, fs)
 
-                baseband = np.convolve(y,h)
+                baseband = np.convolve(a,h)
 
 
         if(pulse_shape == 'rect'):

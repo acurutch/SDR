@@ -49,25 +49,28 @@ def symbol_demod(baseband_symbols, scheme, channel_gain, preamble_len): #"a" is 
  
         if(scheme == 'BPSK'):
 
-                baseband_symbols_I = baseband_symbols[0]
+              #   baseband_symbols_I = baseband_symbols[0]
 
-                baseband_symbols_Q = baseband_symbols[1]
+              #   baseband_symbols_Q = baseband_symbols[1]
+                a_demodulated = np.array([])
 
-                reference_plus = 1.0*channel_gain
+                reference_plus = -1.0*channel_gain
 
                 reference_minus = -reference_plus
 
-                baseband_symbols_complex = baseband_symbols_I + 1j * baseband_symbols_Q
-
+              #   baseband_symbols_complex = baseband_symbols_I + 1j * baseband_symbols_Q
+              
+                baseband_symbols_complex = baseband_symbols
+              
                 for i in range(len(baseband_symbols_complex)):
 
                     #Find the minimum distance between the received symbol and all reference symbols in the constellation plot.
 
                         if (np.abs(baseband_symbols_complex[i] - reference_plus) < np.abs(baseband_symbols_complex[i] - \
                                                                                           reference_minus)):
-                               a_demodulated.append(0)
+                               a_demodulated = np.append(a_demodulated, 0)
                         else:
-                               a_demodulated.append(1)
+                               a_demodulated = np.append(a_demodulated, 1)
 
 
         if(scheme == 'QPSK'):
